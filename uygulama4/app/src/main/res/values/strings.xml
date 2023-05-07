@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name" translatable="false">My Application</string>
+    <string name="my_api_key" translatable="false">AIzaSyCeTKQgPy9MnNF6omTCMJd6uQP1KsQBtgk</string>
+</resources>

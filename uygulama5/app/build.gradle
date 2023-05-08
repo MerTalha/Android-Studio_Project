@@ -45,4 +45,7 @@ dependencies {
     implementation "androidx.room:room-runtime:$room_version"
     annotationProcessor "androidx.room:room-compiler:$room_version"
     implementation "io.reactivex.rxjava3:rxandroid:3.0.0"
+    implementation "com.github.akarnokd:rxjava3-bridge:3.0.2"
+    implementation "androidx.room:room-rxjava3:$room_version"
+
 }

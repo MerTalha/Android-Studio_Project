@@ -50,6 +50,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     PlaceDao placeDao;
     Double selectedLatitude;
     Double selectedLongitude;
+    Place selectedPlace;
     private CompositeDisposable compositeDisposable = new CompositeDisposable();
 
     @Override
@@ -70,6 +71,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         placeDao = db.placeDao();
         selectedLatitude= 0.0;
         selectedLongitude = 0.0;
+        binding.saveButton.setEnabled(false);
     }
 
     @Override
@@ -77,54 +79,75 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap = googleMap;
         mMap.setOnMapLongClickListener(this);
 
-        binding.saveButton.setEnabled(false);
-        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-        locationListener = new LocationListener() {
-            @Override
-            public void onLocationChanged(@NonNull Location location) {
-                System.out.println("Location " + location.toString());
+        Intent intent = getIntent();
+        String intentInfo = intent.getStringExtra("info");
+
+        if (intentInfo.equals("new")){
+            binding.saveButton.setVisibility(View.VISIBLE);
+            binding.deleteButton.setVisibility(View.GONE);
+            locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+            locationListener = new LocationListener() {
+                @Override
+                public void onLocationChanged(@NonNull Location location) {
+                    System.out.println("Location " + location.toString());
+
+                }
+                //eğer uygulama çöküyorsa alttaki metodu sadece override yapmayı dene
+                @Override
+                public void onStatusChanged(String provider, int status, Bundle extras) {
+                    LocationListener.super.onStatusChanged(provider, status, extras);
+                }
+                @Override
+                public void onProviderEnabled(@NonNull String provider) {
+
+                }
+
+                @Override
+                public void onProviderDisabled(@NonNull String provider) {
+
+                }
+            };
+
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this,Manifest.permission.ACCESS_FINE_LOCATION)){
+                    Snackbar.make(binding.getRoot(), "Konum izini gerekli!",Snackbar.LENGTH_INDEFINITE).setAction("İzin vermek için tıkayınız.", new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            //request permission
+                            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+                        }
+                    }).show();
+                }else {
+                    //request permission
+                    permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+                }
+            }else{
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,0,0,locationListener);
+
+                lastLocation  = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                if (lastLocation != null){
+                    LatLng lastUserLocation = new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude());
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lastUserLocation, 15));
+                }
+                mMap.setMyLocationEnabled(true);
 
             }
-            //eğer uygulama çöküyorsa alttaki metodu sadece override yapmayı dene
-            @Override
-            public void onStatusChanged(String provider, int status, Bundle extras) {
-                LocationListener.super.onStatusChanged(provider, status, extras);
-            }
-            @Override
-            public void onProviderEnabled(@NonNull String provider) {
 
-            }
+        }else {
+            mMap.clear();
 
-            @Override
-            public void onProviderDisabled(@NonNull String provider) {
+            selectedPlace = (Place) intent.getSerializableExtra("place");
+            LatLng latLng = new LatLng(selectedPlace.latitude, selectedPlace.longitude);
 
-            }
-        };
+            mMap.addMarker(new MarkerOptions().position(latLng).title(selectedPlace.name));
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,Manifest.permission.ACCESS_FINE_LOCATION)){
-                Snackbar.make(binding.getRoot(), "Konum izini gerekli!",Snackbar.LENGTH_INDEFINITE).setAction("İzin vermek için tıkayınız.", new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        //request permission
-                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
-                    }
-                }).show();
-            }else {
-                //request permission
-                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
-            }
-        }else{
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,0,0,locationListener);
-
-            lastLocation  = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-            if (lastLocation != null){
-                LatLng lastUserLocation = new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude());
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(lastUserLocation, 15));
-            }
-            mMap.setMyLocationEnabled(true);
+            binding.placeNameText.setText(selectedPlace.name);
+            binding.saveButton.setVisibility(View.GONE);
+            binding.deleteButton.setVisibility(View.VISIBLE);
 
         }
+
     }
 
     private void registerLauncher(){
@@ -163,7 +186,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     public void  save(View view){
-        Place place = new Place(binding.placeNameText.getText().toString(), selectedLatitude, selectedLatitude);
+        Place place = new Place(binding.placeNameText.getText().toString(), selectedLatitude, selectedLongitude);
         //threading -> Main (UI), Default (CPU Intensive), IO (network, database)
         //placeDao.insert(place).subscribeOn(Schedulers.io()).subscribe(); bu şekilde de yapılabilir ama alttaki daha verimli
 
@@ -183,13 +206,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     public  void delete(View view){
-        /*
-        compositeDisposable.add(placeDao.delete()
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(MapsActivity.this::handleResponse));
-                */
-
+        if (selectedPlace != null){
+            compositeDisposable.add(placeDao.delete(selectedPlace)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(MapsActivity.this::handleResponse));
+        }
     }
 
     protected void  onDestroy(){

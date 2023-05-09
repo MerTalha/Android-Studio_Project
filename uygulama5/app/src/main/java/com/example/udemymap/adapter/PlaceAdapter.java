@@ -34,12 +34,15 @@ public class PlaceAdapter extends RecyclerView.Adapter<PlaceAdapter.PlaceHolder>
 
     @Override
     public void onBindViewHolder(@NonNull PlaceAdapter.PlaceHolder holder, int position) {
+
         holder.recyclerRowBinding.recyclerViewTextView.setText(placeList.get(position).name);
 
         holder.itemView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Intent intent = new Intent(holder.itemView.getContext(), MapsActivity.class);
+                intent.putExtra("place", placeList.get(holder.getAdapterPosition()));
+                intent.putExtra("info", "old");
                 holder.itemView.getContext().startActivity(intent);
             }
         });

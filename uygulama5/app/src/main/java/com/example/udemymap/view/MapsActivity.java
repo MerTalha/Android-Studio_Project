@@ -146,6 +146,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             binding.saveButton.setVisibility(View.GONE);
             binding.deleteButton.setVisibility(View.VISIBLE);
 
+
         }
 
     }
